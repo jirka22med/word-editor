@@ -109,34 +109,74 @@ function saveBlob(blob, filename) {
 }
 
 // ===========================================================
-// 🧩 DOCX EXPORT (HTML → DOCX) – Lokální knihovna html-to-docx-browser.js
+// 🧩 DOCX EXPORT (HTML → DOCX) – 100% Word kompatibilní verze
 // ===========================================================
 async function exportDocx(title) {
   const html = getEditorHtml();
-  if (!html || html === '<p>Začni psát svůj dokument zde...</p>') {
+  if (!html || html.trim() === '' || html.includes('Začni psát')) {
     alert('⚠️ Editor je prázdný!'); 
+    console.warn('🟡 DOCX export zrušen – prázdný obsah.');
     return;
   }
 
-  // Ověření, že je knihovna načtena
-  if (!window.htmlToDocxBrowser || !window.htmlToDocxBrowser.generate) {
-    alert('❌ Chyba: knihovna html-to-docx-browser není načtena!');
-    console.error('html-to-docx-browser.js nebyl nalezen.');
+  // Ověření knihovny docx.js
+  if (!window.docx) {
+    alert('❌ Knihovna docx.js není načtena! Přidej ji do index.html:');
+    console.error('Chybí <script src="https://cdn.jsdelivr.net/npm/docx@8.0.0/build/index.min.js"></script>');
     return;
   }
 
-  // Nastavení názvu
-  const safeTitle = title && title.trim() ? title.trim() : 'dokument';
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = window.docx;
 
-  // Warpový převod HTML → DOCX
-  try {
-    htmlToDocxBrowser.generate(html, safeTitle + '.docx');
-    console.log('✅ DOCX export dokončen:', safeTitle);
-  } catch (error) {
-    console.error('💥 Chyba při generování DOCX:', error);
-    alert('❌ Export selhal – zkontroluj, zda je knihovna správně připojena.');
-  }
+  console.log('🚀 Knihovna docx.js detekována – inicializuji export...');
+
+  // Rozsekání HTML na odstavce podle <p> tagů
+  const cleanHtml = html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // odstraní vložené CSS
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // odstraní JS
+    .replace(/\n+/g, ' ')
+    .trim();
+
+  const paragraphs = cleanHtml
+    .split(/<\/p>/i)
+    .filter(p => p.trim().length > 0)
+    .map(p => p.replace(/<[^>]+>/g, '').trim());
+
+  // Převedeme odstavce do DOCX
+  const docParagraphs = paragraphs.map(text => 
+    new Paragraph({
+      children: [ new TextRun({ text, font: 'Calibri', size: 24 }) ],
+      spacing: { after: 240 }
+    })
+  );
+
+  // Vytvoření dokumentu
+  const doc = new Document({
+    creator: "Více admirál Jiřík – Flotilový projekt",
+    title: title || "Bez názvu",
+    description: "Dokument vytvořen v RTF Editoru flotily",
+    sections: [
+      {
+        children: [
+          new Paragraph({
+            text: title || "Bez názvu",
+            heading: HeadingLevel.HEADING_1,
+            spacing: { after: 300 },
+          }),
+          ...docParagraphs
+        ]
+      }
+    ]
+  });
+
+  // Převod do Blobu
+  const blob = await window.docx.Packer.toBlob(doc);
+  saveBlob(blob, `${title || 'dokument'}.docx`);
+
+  console.log('✅ DOCX export hotov a uložen:', title);
+  alert('📄 Dokument úspěšně exportován jako DOCX!');
 }
+
 
 // ===========================================================
 // 🧾 TXT EXPORT (UTF-8)
@@ -227,4 +267,5 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 console.log('✅ script.js načten – DOCX verze.');
+
 
