@@ -65,15 +65,32 @@ function escapeRtf(text) {
   return text.replace(/[\\{}]/g, m => "\\" + m);
 }
 
-// Convert to \uXXXX? sequences for non-ascii
+// === 🧩 UNICODE PŘEVOD (Oprava diakritiky v RTF) ===
 function toRtfUnicode(text) {
   let out = "";
   for (const ch of text) {
     const code = ch.codePointAt(0);
-    if (code < 128) out += escapeRtf(ch);
-    else out += "\\u" + code + "?";
+    if (code < 128) {
+      // ASCII znaky zůstávají beze změny
+      out += escapeRtf(ch);
+    } else {
+      // Unicode zápis + skutečný znak jako fallback (žádný otazník)
+      out += "\\u" + code + ch;
+    }
   }
   return out;
+}
+
+// === 🧩 HLAVIČKA RTF DOKUMENTU (Unicode enforcement) ===
+function buildRtfDocument(title, rtfContent) {
+  const header =
+    "{\\rtf1\\ansi\\deff0\\ansicpg65001\\uc1\\adeflang1025" + // ← UTF-8 a vynucený Unicode
+    "{\\fonttbl{\\f0 Arial;}}" +
+    "{\\info{\\title " + escapeRtf(title) + "}}" +
+    "\\viewkind4\\pard\\f0\\fs24\n";
+
+  const footer = "\n}";
+  return header + rtfContent + footer;
 }
 
 // Fallback HTML -> RTF (if external lib unavailable)
@@ -225,3 +242,4 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 console.log('script.js loaded (GitHub-ready).');
+
