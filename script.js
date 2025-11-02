@@ -2,6 +2,18 @@
 // 🚀 STARFLEET DOCX ENGINE v2.0 – Final Integration
 // Autor: Více admirál Jiřík & Admirál Chatbot
 // ===========================================================
+// ===========================================================
+// 💾 Pomocná funkce pro stahování souborů
+// ===========================================================
+function saveBlob(blob, filename) {
+  if (typeof saveAs === 'undefined') {
+    console.error('❌ FileSaver.js není načten!');
+    alert('❌ Chyba: FileSaver.js knihovna není dostupná!');
+    return;
+  }
+  saveAs(blob, filename);
+  console.log(`💾 Soubor uložen jako: ${filename}`);
+}
 
 let editor, docTitle;
 
@@ -263,3 +275,4 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 console.log('✅ script.js v2.0 – Starfleet engine aktivní.');
+
