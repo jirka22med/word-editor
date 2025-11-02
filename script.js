@@ -135,7 +135,7 @@ function convertHtmlToRtfContent(editorElement) {
         // paragraphs: use double \\par to keep blank lines between paragraphs
         .replace(/<\/p>/gi, "\\\\par\\\\par\\n")
         .replace(/<p>/gi, "")
-        .replace(/<br\\s*\\/?>/gi, "\\\\line\\n")
+        .replace(/<br\s*\/?>/gi, '\\line\n')  //špatně toto bylo .replace(/<br\\s*\\/?>/gi, "\\\\line\\n")
         .replace(/<img[^>]*>/gi, "[OBRÁZEK]\\\\par\\n")
         .replace(/<[^>]+>/g, "")
         .replace(/&nbsp;/gi, " ")
@@ -319,3 +319,4 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 console.log('✅ Script (fixed) načten úspěšně!');
+
