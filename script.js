@@ -1,3 +1,4 @@
+
 // Globální proměnné
 let editor;
 let docTitle;
@@ -95,7 +96,7 @@ function setupToolbar() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 🔥 NOVÁ RTF LOGIKA: STABILNÍ UNICODE PŘEVOD (verze 3.1 Admirál Jiřík)
+// 🔥 RTF LOGIKA: STABILNÍ UNICODE PŘEVOD (verze 3.2 - offline safe)
 // ═══════════════════════════════════════════════════════════════════════
 
 function escapeRtf(text) {
@@ -107,7 +108,7 @@ function toRtfUnicode(text) {
     for (const ch of text) {
         const code = ch.codePointAt(0);
         if (code < 128) out += escapeRtf(ch);
-        else out += `\\u${code}?`;
+        else out += "\\u" + code + "?";
     }
     return out;
 }
@@ -122,17 +123,20 @@ function convertHtmlToRtfContent(editorElement) {
     });
 
     let htmlContent = tempDiv.innerHTML
+        // remove empty paragraphs to avoid double empty paras at start/end
         .replace(/<p>\s*<\/p>/gi, "")
-        .replace(/<b>|<strong>/gi, "{\\b ")
-        .replace(/<\/b>|<\/strong>/gi, "\\b0}")
-        .replace(/<i>|<em>/gi, "{\\i ")
-        .replace(/<\/i>|<\/em>/gi, "\\i0}")
-        .replace(/<u>/gi, "{\\ul ")
-        .replace(/<\/u>/gi, "\\ulnone}")
-        .replace(/<\/p>/gi, "\\par\\par\n") // dvojitý odstavec pro přehlednost
+        // basic formatting
+        .replace(/<b>|<strong>/gi, "{\\\\b ")
+        .replace(/<\/b>|<\/strong>/gi, "\\\\b0}")
+        .replace(/<i>|<em>/gi, "{\\\\i ")
+        .replace(/<\/i>|<\/em>/gi, "\\\\i0}")
+        .replace(/<u>/gi, "{\\\\ul ")
+        .replace(/<\/u>/gi, "\\\\ulnone}")
+        // paragraphs: use double \\par to keep blank lines between paragraphs
+        .replace(/<\/p>/gi, "\\\\par\\\\par\\n")
         .replace(/<p>/gi, "")
-        .replace(/<br\s*\/?>/gi, "\\line\n")
-        .replace(/<img[^>]*>/gi, "[OBRÁZEK]\\par\n")
+        .replace(/<br\\s*\\/?>/gi, "\\\\line\\n")
+        .replace(/<img[^>]*>/gi, "[OBRÁZEK]\\\\par\\n")
         .replace(/<[^>]+>/g, "")
         .replace(/&nbsp;/gi, " ")
         .replace(/&amp;/gi, "&")
@@ -140,41 +144,60 @@ function convertHtmlToRtfContent(editorElement) {
         .replace(/&gt;/gi, ">")
         .trim();
 
+    // convert to Unicode RTF (with \\uXXXX? sequences)
     let rtf = toRtfUnicode(htmlContent);
-    rtf = rtf.replace(/^(\s*\\par\s*)+/g, "");
-    rtf = rtf.replace(/(\s*\\par\s*)+$/g, "");
-    rtf = rtf.replace(/(\\par\s*){3,}/g, "\\par\\par");
+
+    // cleanup: remove leading/trailing \\par and collapse >2 to exactly 2
+    rtf = rtf.replace(/^(\\s*\\\\par\\s*)+/g, "");
+    rtf = rtf.replace(/(\\\\par\\s*)+$/g, "");
+    rtf = rtf.replace(/(\\\\par\\s*){3,}/g, "\\\\par\\\\par");
     return rtf;
 }
 
 function buildRtfDocument(title, rtfContent) {
     const header =
-        "{\\rtf1\\ansi\\deff0\\ansicpg1250\\uc1" +
-        "{\\fonttbl{\\f0 Arial;}}" +
-        `{\\info{\\title ${escapeRtf(title)}}}` +
-        "\\viewkind4\\pard\\f0\\fs24\n";
-    const footer = "\n}";
+        "{\\\\rtf1\\\\ansi\\\\deff0\\\\ansicpg1250\\\\uc1" +
+        "{\\\\fonttbl{\\\\f0 Arial;}}" +
+        "{\\\\info{\\\\title " + escapeRtf(title) + "}}" +
+        "\\\\viewkind4\\\\pard\\\\f0\\\\fs24\\n";
+    const footer = "\\n}";
     return header + rtfContent + footer;
 }
 
+// Offline-safe download: use application/msword Blob with BOM, fallback to anchor
 function downloadRtf(filename, rtfString) {
-    const blob = new Blob([rtfString], { type: "application/rtf;charset=utf-8" });
-    if (typeof saveAs === "undefined") {
-        console.error("❌ FileSaver.js není načten!");
-        alert("❌ Chyba: FileSaver.js knihovna není dostupná!");
-        return;
+    // Add BOM to help Word detect encoding when opened from disk
+    const content = "\ufeff" + rtfString;
+    const blob = new Blob([content], { type: "application/msword;charset=utf-8" });
+
+    // Prefer FileSaver if available
+    if (typeof saveAs !== "undefined") {
+        try {
+            saveAs(blob, filename);
+            return;
+        } catch (e) {
+            console.warn("FileSaver failed, falling back to anchor download:", e);
+        }
     }
-    saveAs(blob, filename);
+
+    // Fallback: anchor + object URL
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // === AKČNÍ TLAČÍTKA ===
 function setupActionButtons() {
-    // ☁️ Uložení do cloudu
+    // Save to cloud
     document.getElementById("saveToCloud").addEventListener("click", async () => {
         const title = docTitle.value.trim();
         const content = editor.innerHTML;
-
         if (!title) {
             alert("⚠️ Zadej prosím název dokumentu!");
             docTitle.focus();
@@ -184,7 +207,6 @@ function setupActionButtons() {
             alert("⚠️ Editor je prázdný!");
             return;
         }
-
         if (window.FirestoreAPI) {
             const success = await window.FirestoreAPI.saveDocument(title, content);
             if (success) console.log("✅ Dokument uložen:", title);
@@ -193,7 +215,7 @@ function setupActionButtons() {
         }
     });
 
-    // 📄 RTF EXPORT
+    // RTF EXPORT
     document.getElementById("downloadDOCX").addEventListener("click", () => {
         const title = docTitle.value.trim() || "dokument";
         const content = editor.innerHTML;
@@ -201,10 +223,10 @@ function setupActionButtons() {
             alert("⚠️ Editor je prázdný!");
             return;
         }
-
         try {
             const rtfContent = convertHtmlToRtfContent(editor);
             const rtfDocument = buildRtfDocument(title, rtfContent);
+            // use .rtf extension and offline-safe download
             downloadRtf(`${title}.rtf`, rtfDocument);
             console.log("✅ RTF (Unicode) export dokončen:", title);
             alert("✅ Dokument stažen jako .RTF (Unicode).");
@@ -214,24 +236,28 @@ function setupActionButtons() {
         }
     });
 
-    // 📝 TXT EXPORT
+    // TXT EXPORT
     document.getElementById("downloadTXT").addEventListener("click", () => {
         const title = docTitle.value.trim() || "dokument";
         const rawContent = editor.innerText;
-
         if (rawContent.trim() === "" || rawContent === "Začni psát svůj dokument zde...") {
             alert("⚠️ Editor je prázdný!");
             return;
         }
-
         try {
             const blob = new Blob([rawContent], { type: "text/plain;charset=utf-8" });
-            if (typeof saveAs === "undefined") {
-                console.error("❌ FileSaver.js není načten!");
-                alert("❌ Chyba: FileSaver.js knihovna není dostupná!");
-                return;
+            if (typeof saveAs !== "undefined") {
+                saveAs(blob, `${title}.txt`);
+            } else {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${title}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             }
-            saveAs(blob, `${title}.txt`);
             console.log("✅ TXT stažen:", title);
             alert("✅ Dokument byl úspěšně stažen jako TXT!");
         } catch (error) {
@@ -240,7 +266,7 @@ function setupActionButtons() {
         }
     });
 
-    // 🗑️ Vymazání editoru
+    // Clear editor
     document.getElementById("clearEditor").addEventListener("click", () => {
         if (confirm("🗑️ Opravdu chceš vymazat celý obsah editoru?")) {
             editor.innerHTML = "<p>Začni psát svůj dokument zde...</p>";
@@ -284,12 +310,12 @@ window.deleteDocument = async function(docTitle) {
 };
 
 // Prevence ztráty dat
-window.addEventListener("beforeunload", (e) => {
-    const content = document.getElementById("editor")?.innerHTML;
-    if (content && content.trim() !== "" && content !== "<p>Začni psát svůj dokument zde...</p>") {
+window.addEventListener('beforeunload', (e) => {
+    const content = document.getElementById('editor')?.innerHTML;
+    if (content && content.trim() !== '' && content !== '<p>Začni psát svůj dokument zde...</p>') {
         e.preventDefault();
-        e.returnValue = "";
+        e.returnValue = '';
     }
 });
 
-console.log("✅ Script.js načten úspěšně!");
+console.log('✅ Script (fixed) načten úspěšně!');
