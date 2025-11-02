@@ -57,7 +57,51 @@ function setupToolbar() {
     });
     editor.focus();
   });
+   
+    // ===========================================================
+// 🖼️ Vkládání obrázku jako Base64 – zachování poměru stran
+// ===========================================================
 
+document.getElementById('imageUpload').addEventListener('change', function (event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const base64 = e.target.result; // data:image/png;base64,...
+    const img = new Image();
+
+    img.onload = function () {
+      const maxWidth = 600;  // maximální šířka v editoru
+      const maxHeight = 400; // maximální výška v editoru
+      let width = img.width;
+      let height = img.height;
+
+      // zachování poměru stran
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width = width * ratio;
+        height = height * ratio;
+      }
+
+      const finalImg = document.createElement('img');
+      finalImg.src = base64;
+      finalImg.style.width = `${width}px`;
+      finalImg.style.height = `${height}px`;
+      finalImg.style.display = 'block';
+      finalImg.style.margin = '10px auto';
+      finalImg.style.borderRadius = '6px';
+      finalImg.style.boxShadow = '0 0 6px rgba(0,0,0,0.3)';
+      editor.appendChild(finalImg);
+    };
+
+    img.src = base64;
+  };
+
+  reader.readAsDataURL(file);
+});
+
+    
   document.getElementById('textColor')
     .addEventListener('change', (e) => { document.execCommand('foreColor', false, e.target.value); editor.focus(); });
 
@@ -108,6 +152,50 @@ function saveBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
+
+// ===========================================================
+// 🧩 HTML → DOCX parser (tučné, kurzíva, podtržení, obrázky)
+// ===========================================================
+
+function parseHtmlToDocxRuns(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const runs = [];
+
+  div.childNodes.forEach(node => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      runs.push(new docx.TextRun({ text: node.textContent }));
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      switch (node.tagName.toLowerCase()) {
+        case 'b': case 'strong':
+          runs.push(new docx.TextRun({ text: node.textContent, bold: true }));
+          break;
+        case 'i': case 'em':
+          runs.push(new docx.TextRun({ text: node.textContent, italics: true }));
+          break;
+        case 'u':
+          runs.push(new docx.TextRun({ text: node.textContent, underline: {} }));
+          break;
+        case 'img':
+          const src = node.getAttribute('src');
+          if (src && src.startsWith('data:image')) {
+            const base64 = src.split(',')[1];
+            runs.push(new docx.ImageRun({
+              data: Uint8Array.from(atob(base64), c => c.charCodeAt(0)),
+              transformation: { width: 300, height: 200 }
+            }));
+          }
+          break;
+        default:
+          runs.push(...parseHtmlToDocxRuns(node.innerHTML)); // Rekurze
+      }
+    }
+  });
+  return runs;
+}
+
+
+
 // ===========================================================
 // 🧩 DOCX EXPORT (HTML → DOCX) – 100% Word kompatibilní verze
 // ===========================================================
@@ -142,13 +230,14 @@ async function exportDocx(title) {
     .filter(p => p.trim().length > 0)
     .map(p => p.replace(/<[^>]+>/g, '').trim());
 
-  // Převedeme odstavce do DOCX
-  const docParagraphs = paragraphs.map(text => 
-    new Paragraph({
-      children: [ new TextRun({ text, font: 'Calibri', size: 24 }) ],
+  // Převedeme HTML na DOCX odstavce – s podporou tučného, kurzívy, podtržení a obrázků
+  const docParagraphs = cleanHtml
+    .split(/<\/p>/i)
+    .filter(p => p.trim().length > 0)
+    .map(p => new Paragraph({
+      children: parseHtmlToDocxRuns(p),
       spacing: { after: 240 }
-    })
-  );
+    }));
 
   // Vytvoření dokumentu
   const doc = new Document({
