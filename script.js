@@ -109,44 +109,33 @@ function saveBlob(blob, filename) {
 }
 
 // ===========================================================
-// 🧩 DOCX EXPORT (HTML → DOCX) – html-to-docx
+// 🧩 DOCX EXPORT (HTML → DOCX) – Lokální knihovna html-to-docx-browser.js
 // ===========================================================
 async function exportDocx(title) {
   const html = getEditorHtml();
   if (!html || html === '<p>Začni psát svůj dokument zde...</p>') {
-    alert('⚠️ Editor je prázdný!'); return;
-  }
-
-  // Knihovna je načtena z CDN jako UMD:
-  // window.htmlToDocx.default  nebo window.htmlToDocx  nebo window.HTMLToDOCX
-  const lib =
-    (window.htmlToDocx && (window.htmlToDocx.default || window.htmlToDocx)) ||
-    window.HTMLToDOCX;
-
-  if (!lib) {
-    alert('❌ Knihovna html-to-docx není načtena! Přidej CDN script do index.html.');
-    console.error('html-to-docx UMD není k dispozici.');
+    alert('⚠️ Editor je prázdný!'); 
     return;
   }
 
-  // Volání: vrací ArrayBuffer / Uint8Array (závisí na buildu)
-  // Nastavíme pár rozumných voleb pro lepší kompatibilitu s Wordem.
-  const options = {
-    orientation: 'portrait',
-    margins: { top: 720, right: 720, bottom: 720, left: 720 }, // 720 twips = 0.5"
-    // footer/header necháme prázdné; lze doplnit později
-    // podporuje CSS pro běžné tagy (<b>,<i>,<u>, <p>, <h1>.., <ul>/<ol>, <img>)
-  };
+  // Ověření, že je knihovna načtena
+  if (!window.htmlToDocxBrowser || !window.htmlToDocxBrowser.generate) {
+    alert('❌ Chyba: knihovna html-to-docx-browser není načtena!');
+    console.error('html-to-docx-browser.js nebyl nalezen.');
+    return;
+  }
 
-  const arrayBuffer = await lib(html, null, options); // headerHtml=null
+  // Nastavení názvu
+  const safeTitle = title && title.trim() ? title.trim() : 'dokument';
 
-  const blob = new Blob(
-    [arrayBuffer],
-    { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
-  );
-
-  saveBlob(blob, `${title}.docx`);
-  console.log('✅ DOCX export hotov:', title);
+  // Warpový převod HTML → DOCX
+  try {
+    htmlToDocxBrowser.generate(html, safeTitle + '.docx');
+    console.log('✅ DOCX export dokončen:', safeTitle);
+  } catch (error) {
+    console.error('💥 Chyba při generování DOCX:', error);
+    alert('❌ Export selhal – zkontroluj, zda je knihovna správně připojena.');
+  }
 }
 
 // ===========================================================
@@ -238,3 +227,4 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 console.log('✅ script.js načten – DOCX verze.');
+
