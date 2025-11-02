@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RTF Editor - Více Admirál Jiřík</title>
+  <link rel="stylesheet" href="style.css">
+  
+</head>
+<body>
+  <div class="container">
+    <nav class="main-nav">
+      <button id="editorBtn" class="nav-btn active">📝 Editor</button>
+      <button id="documentsBtn" class="nav-btn">📚 Dokumenty</button>
+    </nav>
+
+    <div id="editorPage" class="page active">
+      <header>
+        <h1>🚀 RTF Editor - Cloud Firestore</h1>
+        <p>Více Admirál Jiřík - Flotilový Projekt</p>
+      </header>
+
+      <div class="editor-container">
+        <div class="toolbar">
+          <input type="text" id="docTitle" placeholder="Název dokumentu..." class="doc-title-input">
+
+          <div class="toolbar-group">
+            <button id="boldBtn" class="tool-btn" title="Tučné">🅱️</button>
+            <button id="italicBtn" class="tool-btn" title="Kurzíva">🅸</button>
+            <button id="underlineBtn" class="tool-btn" title="Podtržené">🆄</button>
+          </div>
+
+          <div class="toolbar-group">
+            <select id="fontSize" class="tool-select">
+              <option value="12">12px</option>
+              <option value="14">14px</option>
+              <option value="16" selected>16px</option>
+              <option value="18">18px</option>
+              <option value="20">20px</option>
+              <option value="24">24px</option>
+              <option value="28">28px</option>
+              <option value="32">32px</option>
+            </select>
+            <input type="color" id="textColor" value="#000000" class="tool-color">
+          </div>
+
+          <div class="toolbar-group">
+            <label for="imageUpload" class="tool-btn">🖼️ Obrázek</label>
+            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+          </div>
+        </div>
+
+        <div id="editor" contenteditable="true" class="editor-area">
+          <p>Začni psát svůj dokument zde...</p>
+        </div>
+
+        <div class="action-buttons">
+          <button id="saveToCloud" class="action-btn save-btn">☁️ Uložit do Cloudu</button>
+          <button id="downloadDOCX" class="action-btn download-btn">📄 Stáhnout RTF</button>
+          <button id="downloadTXT" class="action-btn download-btn txt-btn">📝 Stáhnout TXT</button>
+          <button id="clearEditor" class="action-btn clear-btn">🗑️ Vymazat</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="documentsPage" class="page">
+      <header>
+        <h1>📚 Moje Dokumenty</h1>
+        <p>Cloud Firestore - Synchronizace v reálném čase</p>
+      </header>
+
+      <div class="documents-container">
+        <div class="documents-header">
+          <button id="refreshDocs" class="refresh-btn">🔄 Obnovit</button>
+          <span id="syncStatus" class="sync-status">⚡ Připojeno</span>
+        </div>
+
+        <table id="documentsTable" class="documents-table">
+          <thead>
+            <tr>
+              <th>📄 Název dokumentu</th>
+              <th>📅 Datum vytvoření</th>
+              <th>⚙️ Akce</th>
+            </tr>
+          </thead>
+          <tbody id="documentsBody">
+            <tr>
+              <td colspan="3" class="no-documents">Zatím žádné dokumenty...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+ <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.0.0/build/index.min.js"></script>
+<script src="cloud-firestore.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
