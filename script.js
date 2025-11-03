@@ -230,15 +230,24 @@ async function exportDocx(title) {
     .filter(p => p.trim().length > 0)
     .map(p => p.replace(/<[^>]+>/g, '').trim());
 
-  // Převedeme HTML na DOCX odstavce – s podporou tučného, kurzívy, podtržení a obrázků
-  const docParagraphs = cleanHtml
-    .split(/<\/p>/i)
-    .filter(p => p.trim().length > 0)
-    .map(p => new Paragraph({
-      children: parseHtmlToDocxRuns(p),
-      spacing: { after: 240 }
-    }));
+  // Převedeme HTML na DOCX odstavce – s podporou tučného, kurzívy, podtržení a obrázků >>záloha
+  //const docParagraphs = cleanHtml
+  //  .split(/<\/p>/i)
+  //  .filter(p => p.trim().length > 0)
+//    .map(p => new Paragraph({
+   //   children: parseHtmlToDocxRuns(p),
+//      spacing: { after: 240 }
+ //   }));
 
+  // 🧩 Vylepšený převod odstavců – zachová <b>, <i>, <u>, <img> >>>nový kod
+const docParagraphs = paragraphs.map(p => {
+  const runs = parseHtmlToDocxRuns(p);
+  return new Paragraph({
+    children: runs.length ? runs : [new docx.TextRun({ text: p })],
+    spacing: { after: 240 }
+  });
+});
+  
   // Vytvoření dokumentu
   const doc = new Document({
     creator: "Více admirál Jiřík – Flotilový projekt",
@@ -356,5 +365,6 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 console.log('✅ script.js načten – DOCX verze.');
+
 
 
